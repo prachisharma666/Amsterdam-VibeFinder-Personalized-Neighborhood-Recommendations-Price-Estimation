@@ -1,6 +1,9 @@
+streamlit
 pandas
 numpy
-scikit-learn==1.6.1
-statsmodels
 joblib
-streamlit
+statsmodels
+scikit-learn==1.6.1
+folium
+streamlit-folium
+geopandas
