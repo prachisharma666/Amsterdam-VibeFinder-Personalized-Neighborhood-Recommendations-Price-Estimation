@@ -13,8 +13,9 @@ st.set_page_config(page_title="Amsterdam Stay Planner", page_icon="🌷", layout
 # Asset Loading
 @st.cache_resource
 def load_assets():
-    with open('airbnb_model.pkl', 'rb') as f:
-        model = pickle.load(f)
+    import statsmodels.api as sm
+    # This is the most stable way to load a statsmodels formula model
+    model = sm.load("airbnb_model.pkl")
     return model
 
 @st.cache_data
@@ -101,35 +102,30 @@ with col_res:
     
     predict_btn = st.button("Predict Price")
 
-    if predict_btn:
-        # Create Dataframe for statsmodels prediction
-        # Column names must match the names in your model formula exactly.
-        input_df = pd.DataFrame({
-            'accommodates': [accommodates],
-            'bedrooms': [bedrooms],
-            'bathrooms_count': [bathrooms],
-            'beds': [beds],
-            'availability_365': [150], # Default value
-            'reviews_per_month': [2.5], # Default value
-            'instant_bookable': [1],
-            'host_identity_verified': [1],
-            'review_scores_cleanliness': [9.5],
-            'review_scores_location': [9.5],
-            'review_scores_value': [review_score],
-            'first_review_days': [500],
-            'room_type': [room_type],
-            'neighbourhood_cleansed': [hood_choice],
-            'accommodates2': [accommodates**2],
-            'minimum_nights2': [min_nights**2]
-        })
+if predict_btn:
+    # 1. Create a DataFrame with the EXACT names used in your formula
+    input_df = pd.DataFrame({
+        'accommodates': [accommodates],
+        'bedrooms': [bedrooms],
+        'bathrooms_count': [bathrooms],
+        'beds': [beds],
+        'availability_365': [150], 
+        'reviews_per_month': [2.5],
+        'instant_bookable': [1],
+        'host_identity_verified': [1],
+        'review_scores_cleanliness': [9.5],
+        'review_scores_location': [9.5],
+        'review_scores_value': [review_score],
+        'first_review_days': [500],
+        'room_type': [room_type], 
+        'neighbourhood_cleansed': [hood_choice],
+        'accommodates2': [accommodates**2],
+        'minimum_nights2': [min_nights**2]
+    })
 
-        try:
-            # Statsmodels formula-based models predict directly on the raw DataFrame
-            prediction = model.predict(input_df)
-            
-            st.markdown("---")
-            st.metric(label="Estimated Price per Night", value=f"€{prediction[0]:.2f}")
-            st.info(f"This price is based on a stay in **{hood_choice}** with a rating of **{review_score}**.")
-        except Exception as e:
-            st.error(f"Prediction Error: {e}")
-            st.write("Ensure column names in your dataframe match the model formula.")
+    try:
+        # No manual transformation needed! The formula model handles it.
+        prediction = model.predict(input_df)
+        st.metric("Estimated Price", f"€{prediction[0]:.2f}")
+    except Exception as e:
+        st.error(f"Prediction Error: {e}")
