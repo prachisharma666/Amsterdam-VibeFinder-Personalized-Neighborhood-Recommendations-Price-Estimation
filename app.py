@@ -11,17 +11,11 @@ import pickle
 # Page configuration
 st.set_page_config(page_title="Amsterdam Stay Planner", page_icon="🌷", layout="wide")
 
-# Asset Loading
 @st.cache_resource
 def load_assets():
-    # Try the standard pickle load first
-    try:
-        with open("airbnb_model.pkl", "rb") as f:
-            model = pickle.load(f)
-        return model
-    except Exception:
-        # Fallback to statsmodels native load
-        return sm.load("airbnb_model.pkl")
+    import joblib
+    # Use joblib to load instead of pickle
+    return joblib.load("airbnb_model.pkl")
 
 model = load_assets()
 
