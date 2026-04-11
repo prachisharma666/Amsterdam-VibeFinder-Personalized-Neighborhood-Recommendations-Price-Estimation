@@ -6,7 +6,7 @@ import folium
 from streamlit_folium import st_folium
 import geopandas as gpd
 import joblib
-
+import pickle
 # Page configuration
 st.set_page_config(page_title="Amsterdam Stay Planner", page_icon="🌷", layout="wide")
 
