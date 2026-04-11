@@ -7,24 +7,34 @@ from streamlit_folium import st_folium
 import geopandas as gpd
 import joblib
 import pickle
+
 # Page configuration
 st.set_page_config(page_title="Amsterdam Stay Planner", page_icon="🌷", layout="wide")
 
 # Asset Loading
 @st.cache_resource
 def load_assets():
-    import statsmodels.api as sm
-    # This is the most stable way to load a statsmodels formula model
-    model = sm.load("airbnb_model.pkl")
-    return model
+    # Try the standard pickle load first
+    try:
+        with open("airbnb_model.pkl", "rb") as f:
+            model = pickle.load(f)
+        return model
+    except Exception:
+        # Fallback to statsmodels native load
+        return sm.load("airbnb_model.pkl")
+
+model = load_assets()
 
 @st.cache_data
 def load_geo():
-    # Loading the geojson for the map
     return gpd.read_file('neighbourhoods.geojson')
 
-model = load_assets()
-gdf = load_geo()
+# Handle case where geojson might be missing
+try:
+    gdf = load_geo()
+except Exception as e:
+    st.error(f"Error loading map data: {e}")
+    gdf = None
 
 # Custom Styling
 st.markdown("""
@@ -33,17 +43,6 @@ st.markdown("""
     .stButton>button { width: 100%; border-radius: 10px; background-color: #FF5A5F; color: white; font-weight: bold; }
     </style>
     """, unsafe_with_html=True)
-
-# NEIGHBORHOOD LIST (Exactly as provided in your array)
-neighborhood_list = [
-    'Centrum-West', 'Centrum-Oost', 'Bos en Lommer', 'Slotervaart',
-    'De Pijp - Rivierenbuurt', 'De Baarsjes - Oud-West', 'Zuid',
-    'Oud-Oost', 'Westerpark', 'Oostelijk Havengebied - Indische Buurt',
-    'Noord-Oost', 'Buitenveldert - Zuidas', 'Bijlmer-Oost',
-    'Watergraafsmeer', 'Oud-Noord', 'Geuzenveld - Slotermeer',
-    'IJburg - Zeeburgereiland', 'Noord-West', 'De Aker - Nieuw Sloten',
-    'Osdorp', 'Bijlmer-Centrum', 'Gaasperdam - Driemond'
-]
 
 # SIDEBAR: Accommodation Filters
 with st.sidebar:
@@ -58,11 +57,9 @@ with st.sidebar:
         beds = st.number_input("Beds", 1, 20, 1)
         min_nights = st.number_input("Minimum Nights", 1, 30, 2)
 
-# MAIN PANEL: Tourism Interests
+# MAIN PANEL
 st.title("Amsterdam Trip Planner & Price Predictor 🌷")
-st.write("Discover the perfect neighborhood based on your interests and view the expected price.")
 
-# Mapping Interests -> Neighborhoods (Based on amsterdamsights.com)
 interest_map = {
     "Historical Sites & Old City": ["Centrum-West", "Centrum-Oost"],
     "Museums & Art": ["Zuid", "Centrum-Oost"],
@@ -72,60 +69,52 @@ interest_map = {
     "Quiet & Residential": ["Buitenveldert - Zuidas", "IJburg - Zeeburgereiland"]
 }
 
-col_top1, col_top2 = st.columns([1, 1])
-with col_top1:
-    selected_vibe = st.selectbox("What would you like to explore?", list(interest_map.keys()))
-    recommended_hoods = interest_map[selected_vibe]
+selected_vibe = st.selectbox("What would you like to explore?", list(interest_map.keys()))
+recommended_hoods = interest_map[selected_vibe]
 
-# Interactive Map
 col_map, col_res = st.columns([2, 1])
 
 with col_map:
     m = folium.Map(location=[52.3676, 4.9041], zoom_start=12, tiles="CartoDB positron")
-    
-    def style_function(feature):
-        name = feature['properties']['neighbourhood']
-        is_target = name in recommended_hoods
-        return {
-            'fillColor': '#FF5A5F' if is_target else '#ced4da',
-            'color': 'black',
-            'weight': 1,
-            'fillOpacity': 0.7 if is_target else 0.1,
-        }
-
-    folium.GeoJson(gdf, style_function=style_function).add_to(m)
+    if gdf is not None:
+        def style_function(feature):
+            name = feature['properties']['neighbourhood']
+            is_target = name in recommended_hoods
+            return {
+                'fillColor': '#FF5A5F' if is_target else '#ced4da',
+                'color': 'black', 'weight': 1, 'fillOpacity': 0.7 if is_target else 0.1,
+            }
+        folium.GeoJson(gdf, style_function=style_function).add_to(m)
     st_folium(m, width=700, height=450)
 
 with col_res:
     st.subheader("Recommendation")
-    hood_choice = st.selectbox("Select a neighborhood from the suggestions:", recommended_hoods)
-    
+    hood_choice = st.selectbox("Select a neighborhood:", recommended_hoods)
     predict_btn = st.button("Predict Price")
 
-if predict_btn:
-    # 1. Create a DataFrame with the EXACT names used in your formula
-    input_df = pd.DataFrame({
-        'accommodates': [accommodates],
-        'bedrooms': [bedrooms],
-        'bathrooms_count': [bathrooms],
-        'beds': [beds],
-        'availability_365': [150], 
-        'reviews_per_month': [2.5],
-        'instant_bookable': [1],
-        'host_identity_verified': [1],
-        'review_scores_cleanliness': [9.5],
-        'review_scores_location': [9.5],
-        'review_scores_value': [review_score],
-        'first_review_days': [500],
-        'room_type': [room_type], 
-        'neighbourhood_cleansed': [hood_choice],
-        'accommodates2': [accommodates**2],
-        'minimum_nights2': [min_nights**2]
-    })
+    if predict_btn:
+        input_df = pd.DataFrame({
+            'accommodates': [accommodates],
+            'bedrooms': [bedrooms],
+            'bathrooms_count': [bathrooms],
+            'beds': [beds],
+            'availability_365': [150], 
+            'reviews_per_month': [2.5],
+            'instant_bookable': [1],
+            'host_identity_verified': [1],
+            'review_scores_cleanliness': [9.5],
+            'review_scores_location': [9.5],
+            'review_scores_value': [review_score],
+            'first_review_days': [500],
+            'room_type': [room_type], 
+            'neighbourhood_cleansed': [hood_choice],
+            'accommodates2': [accommodates**2],
+            'minimum_nights2': [min_nights**2]
+        })
 
-    try:
-        # No manual transformation needed! The formula model handles it.
-        prediction = model.predict(input_df)
-        st.metric("Estimated Price", f"€{prediction[0]:.2f}")
-    except Exception as e:
-        st.error(f"Prediction Error: {e}")
+        try:
+            prediction = model.predict(input_df)
+            st.markdown("---")
+            st.metric("Estimated Price", f"€{prediction[0]:.2f}")
+        except Exception as e:
+            st.error(f"Prediction Error: {e}")
