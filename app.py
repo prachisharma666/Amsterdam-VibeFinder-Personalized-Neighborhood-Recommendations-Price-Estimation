@@ -7,18 +7,19 @@ from streamlit_folium import st_folium
 import geopandas as gpd
 import joblib
 
-# Pagina-instellingen
-st.set_page_config(page_title="Amsterdam Verblijf Planner", page_icon="🌷", layout="wide")
+# Page configuration
+st.set_page_config(page_title="Amsterdam Stay Planner", page_icon="🌷", layout="wide")
 
-# Bestanden laden
+# Asset Loading
 @st.cache_resource
 def load_assets():
-    # We laden alleen het model omdat smf.ols de preprocessing intern regelt
+    # Loading the model. smf.ols handles preprocessing internally via the formula.
     model = sm.load("airbnb_model.pkl")
     return model
 
 @st.cache_data
 def load_geo():
+    # Loading the geojson for the map
     return gpd.read_file('neighbourhoods.geojson')
 
 model = load_assets()
@@ -32,8 +33,8 @@ st.markdown("""
     </style>
     """, unsafe_with_html=True)
 
-# BUURTEN LIJST (gebaseerd op jouw array)
-buurten_lijst = [
+# NEIGHBORHOOD LIST (Exactly as provided in your array)
+neighborhood_list = [
     'Centrum-West', 'Centrum-Oost', 'Bos en Lommer', 'Slotervaart',
     'De Pijp - Rivierenbuurt', 'De Baarsjes - Oud-West', 'Zuid',
     'Oud-Oost', 'Westerpark', 'Oostelijk Havengebied - Indische Buurt',
@@ -43,39 +44,39 @@ buurten_lijst = [
     'Osdorp', 'Bijlmer-Centrum', 'Gaasperdam - Driemond'
 ]
 
-# SIDEBAR: Accommodatie Filters
+# SIDEBAR: Accommodation Filters
 with st.sidebar:
-    st.header("🏠 Jouw Wensen")
-    room_type = st.selectbox("Type Kamer", ["Entire home/apt", "Private room", "Shared room", "Hotel room"])
-    review_score = st.slider("Minimale Waardering (0-10)", 0.0, 10.0, 8.5, 0.1)
+    st.header("🏠 Your Preferences")
+    room_type = st.selectbox("Room Type", ["Entire home/apt", "Private room", "Shared room", "Hotel room"])
+    review_score = st.slider("Minimum Rating (0-10)", 0.0, 10.0, 8.5, 0.1)
     
-    with st.expander("Details van het verblijf"):
-        accommodates = st.number_input("Aantal Gasten", 1, 16, 2)
-        bedrooms = st.number_input("Slaapkamers", 0, 10, 1)
-        bathrooms = st.number_input("Badkamers", 0.0, 10.0, 1.0)
-        beds = st.number_input("Bedden", 1, 20, 1)
-        min_nights = st.number_input("Minimaal aantal nachten", 1, 30, 2)
+    with st.expander("Stay Details"):
+        accommodates = st.number_input("Number of Guests", 1, 16, 2)
+        bedrooms = st.number_input("Bedrooms", 0, 10, 1)
+        bathrooms = st.number_input("Bathrooms", 0.0, 10.0, 1.0)
+        beds = st.number_input("Beds", 1, 20, 1)
+        min_nights = st.number_input("Minimum Nights", 1, 30, 2)
 
-# HOOFDPANEEL: Toerisme Belangen
-st.title("Amsterdam Reis Planner & Prijsvoorspeller 🌷")
-st.write("Ontdek de perfecte buurt op basis van jouw interesses en bekijk de verwachte prijs.")
+# MAIN PANEL: Tourism Interests
+st.title("Amsterdam Trip Planner & Price Predictor 🌷")
+st.write("Discover the perfect neighborhood based on your interests and view the expected price.")
 
-# Mapping van Interesses naar Buurten (gebaseerd op amsterdamsights.com)
-interesse_map = {
-    "Historische Plekken & Centrum": ["Centrum-West", "Centrum-Oost"],
-    "Musea & Kunst": ["Zuid", "Centrum-Oost"],
-    "Nachtleven & Entertainment": ["Centrum-West", "De Pijp - Rivierenbuurt"],
-    "Dierentuin & Natuur": ["Oud-Oost", "Watergraafsmeer"],
-    "Lokaal & Hip": ["De Baarsjes - Oud-West", "Westerpark"],
-    "Rust & Residentieel": ["Buitenveldert - Zuidas", "IJburg - Zeeburgereiland"]
+# Mapping Interests -> Neighborhoods (Based on amsterdamsights.com)
+interest_map = {
+    "Historical Sites & Old City": ["Centrum-West", "Centrum-Oost"],
+    "Museums & Art": ["Zuid", "Centrum-Oost"],
+    "Nightlife & Entertainment": ["Centrum-West", "De Pijp - Rivierenbuurt"],
+    "Zoo & Nature": ["Oud-Oost", "Watergraafsmeer"],
+    "Local & Trendy": ["De Baarsjes - Oud-West", "Westerpark"],
+    "Quiet & Residential": ["Buitenveldert - Zuidas", "IJburg - Zeeburgereiland"]
 }
 
 col_top1, col_top2 = st.columns([1, 1])
 with col_top1:
-    selected_vibe = st.selectbox("Wat wil je bezoeken?", list(interesse_map.keys()))
-    aanbevolen_buurten = interesse_map[selected_vibe]
+    selected_vibe = st.selectbox("What would you like to explore?", list(interest_map.keys()))
+    recommended_hoods = interest_map[selected_vibe]
 
-# Interactieve Kaart
+# Interactive Map
 col_map, col_res = st.columns([2, 1])
 
 with col_map:
@@ -83,7 +84,7 @@ with col_map:
     
     def style_function(feature):
         name = feature['properties']['neighbourhood']
-        is_target = name in aanbevolen_buurten
+        is_target = name in recommended_hoods
         return {
             'fillColor': '#FF5A5F' if is_target else '#ced4da',
             'color': 'black',
@@ -95,21 +96,21 @@ with col_map:
     st_folium(m, width=700, height=450)
 
 with col_res:
-    st.subheader("Aanbeveling")
-    buurt_keuze = st.selectbox("Kies een specifieke buurt uit de selectie:", aanbevolen_buurten)
+    st.subheader("Recommendation")
+    hood_choice = st.selectbox("Select a neighborhood from the suggestions:", recommended_hoods)
     
-    predict_btn = st.button("Voorspel Prijs")
+    predict_btn = st.button("Predict Price")
 
     if predict_btn:
-        # Dataframe maken voor statsmodels predictie
-        # Let op: De namen van de kolommen MOETEN exact overeenkomen met je formule!
+        # Create Dataframe for statsmodels prediction
+        # Column names must match the names in your model formula exactly.
         input_df = pd.DataFrame({
             'accommodates': [accommodates],
             'bedrooms': [bedrooms],
             'bathrooms_count': [bathrooms],
             'beds': [beds],
-            'availability_365': [150],
-            'reviews_per_month': [2.5],
+            'availability_365': [150], # Default value
+            'reviews_per_month': [2.5], # Default value
             'instant_bookable': [1],
             'host_identity_verified': [1],
             'review_scores_cleanliness': [9.5],
@@ -117,18 +118,18 @@ with col_res:
             'review_scores_value': [review_score],
             'first_review_days': [500],
             'room_type': [room_type],
-            'neighbourhood_cleansed': [buurt_keuze],
+            'neighbourhood_cleansed': [hood_choice],
             'accommodates2': [accommodates**2],
             'minimum_nights2': [min_nights**2]
         })
 
         try:
-            # Statsmodels formule-gebaseerde modellen kunnen direct predicten op de ruwe DF
+            # Statsmodels formula-based models predict directly on the raw DataFrame
             prediction = model.predict(input_df)
             
             st.markdown("---")
-            st.metric(label="Geschatte Prijs per Nacht", value=f"€{prediction[0]:.2f}")
-            st.info(f"Deze prijs is gebaseerd op een verblijf in **{buurt_keuze}** met een waardering van **{review_score}**.")
+            st.metric(label="Estimated Price per Night", value=f"€{prediction[0]:.2f}")
+            st.info(f"This price is based on a stay in **{hood_choice}** with a rating of **{review_score}**.")
         except Exception as e:
-            st.error(f"Fout bij voorspelling: {e}")
-            st.write("Controleer of de kolomnamen in je dataframe overeenkomen met de modelformule.")
+            st.error(f"Prediction Error: {e}")
+            st.write("Ensure column names in your dataframe match the model formula.")
