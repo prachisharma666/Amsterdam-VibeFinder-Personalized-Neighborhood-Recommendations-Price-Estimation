@@ -11,16 +11,25 @@ import pickle
 # Page configuration
 st.set_page_config(page_title="Amsterdam Stay Planner", page_icon="🌷", layout="wide")
 
+# Asset Loading
 @st.cache_resource
 def load_assets():
-    import joblib
-    # Use joblib to load instead of pickle
-    return joblib.load("airbnb_model.pkl")
+    # Loading both files with the exact names from your GitHub
+    # Using joblib as it is more robust for cross-platform deployment
+    try:
+        model = joblib.load("airbnb_model (1).pkl")
+        preprocessor = joblib.load("preprocessor (1).pkl")
+        return model, preprocessor
+    except Exception as e:
+        st.error(f"Error loading model files: {e}")
+        return None, None
 
-model = load_assets()
+# Unpack both assets
+model, preprocessor = load_assets()
 
 @st.cache_data
 def load_geo():
+    # Loading the geojson for the map
     return gpd.read_file('neighbourhoods.geojson')
 
 # Handle case where geojson might be missing
@@ -51,9 +60,11 @@ with st.sidebar:
         beds = st.number_input("Beds", 1, 20, 1)
         min_nights = st.number_input("Minimum Nights", 1, 30, 2)
 
-# MAIN PANEL
+# MAIN PANEL: Tourism Interests
 st.title("Amsterdam Trip Planner & Price Predictor 🌷")
+st.write("Discover the perfect neighborhood based on your interests and view the expected price.")
 
+# The Interest Map: Connecting vibes to specific neighborhoods
 interest_map = {
     "Historical Sites & Old City": ["Centrum-West", "Centrum-Oost"],
     "Museums & Art": ["Zuid", "Centrum-Oost"],
@@ -63,30 +74,42 @@ interest_map = {
     "Quiet & Residential": ["Buitenveldert - Zuidas", "IJburg - Zeeburgereiland"]
 }
 
+# User chooses a vibe
 selected_vibe = st.selectbox("What would you like to explore?", list(interest_map.keys()))
 recommended_hoods = interest_map[selected_vibe]
 
+# Layout for Map and Results
 col_map, col_res = st.columns([2, 1])
 
 with col_map:
+    # Initialize Map
     m = folium.Map(location=[52.3676, 4.9041], zoom_start=12, tiles="CartoDB positron")
+    
     if gdf is not None:
         def style_function(feature):
             name = feature['properties']['neighbourhood']
+            # Highlight only the neighborhoods that match the selected vibe
             is_target = name in recommended_hoods
             return {
                 'fillColor': '#FF5A5F' if is_target else '#ced4da',
-                'color': 'black', 'weight': 1, 'fillOpacity': 0.7 if is_target else 0.1,
+                'color': 'black',
+                'weight': 1,
+                'fillOpacity': 0.7 if is_target else 0.1,
             }
+
         folium.GeoJson(gdf, style_function=style_function).add_to(m)
+    
     st_folium(m, width=700, height=450)
 
 with col_res:
     st.subheader("Recommendation")
-    hood_choice = st.selectbox("Select a neighborhood:", recommended_hoods)
+    # User selects one of the suggested neighborhoods for prediction
+    hood_choice = st.selectbox("Select a neighborhood from the suggestions:", recommended_hoods)
+    
     predict_btn = st.button("Predict Price")
 
     if predict_btn:
+        # Create input DataFrame with feature names matching your training data
         input_df = pd.DataFrame({
             'accommodates': [accommodates],
             'bedrooms': [bedrooms],
@@ -107,8 +130,13 @@ with col_res:
         })
 
         try:
-            prediction = model.predict(input_df)
-            st.markdown("---")
-            st.metric("Estimated Price", f"€{prediction[0]:.2f}")
+            # Statsmodels formula models handle the categorical encoding automatically
+            if model is not None:
+                prediction = model.predict(input_df)
+                st.markdown("---")
+                st.success(f"The estimated price for your stay is:")
+                st.metric("Estimated Price", f"€{prediction[0]:.2f}")
+            else:
+                st.error("Model not loaded correctly.")
         except Exception as e:
             st.error(f"Prediction Error: {e}")
