@@ -8,63 +8,64 @@ import geopandas as gpd
 import joblib
 import pickle
 
-# Page configuration
+# 1. Page configuration
 st.set_page_config(page_title="Amsterdam Stay Planner", page_icon="🌷", layout="wide")
 
-# Asset Loading
+# 2. Asset Loading
 @st.cache_resource
 def load_assets():
-    # Loading both files with the exact names from your GitHub
-    # Using joblib as it is more robust for cross-platform deployment
     try:
-        model = joblib.load("airbnb_model (1).pkl")
-        preprocessor = joblib.load("preprocessor (1).pkl")
+        # Integrated the new underscored names
+        model = joblib.load("airbnb_model_1.pkl")
+        preprocessor = joblib.load("preprocessor_1.pkl")
         return model, preprocessor
     except Exception as e:
         st.error(f"Error loading model files: {e}")
         return None, None
 
-# Unpack both assets
 model, preprocessor = load_assets()
 
 @st.cache_data
 def load_geo():
-    # Loading the geojson for the map
     return gpd.read_file('neighbourhoods.geojson')
 
-# Handle case where geojson might be missing
 try:
     gdf = load_geo()
 except Exception as e:
     st.error(f"Error loading map data: {e}")
     gdf = None
 
-# Custom Styling
+# 3. Custom Styling
 st.markdown("""
     <style>
     .main { background-color: #f8f9fa; }
-    .stButton>button { width: 100%; border-radius: 10px; background-color: #FF5A5F; color: white; font-weight: bold; }
+    .stButton>button { 
+        width: 100%; 
+        border-radius: 10px; 
+        background-color: #FF5A5F; 
+        color: white; 
+        font-weight: bold; 
+        height: 3em;
+    }
     </style>
     """, unsafe_with_html=True)
 
-# SIDEBAR: Accommodation Filters
+# 4. SIDEBAR: Accommodation Filters
 with st.sidebar:
     st.header("🏠 Your Preferences")
     room_type = st.selectbox("Room Type", ["Entire home/apt", "Private room", "Shared room", "Hotel room"])
     review_score = st.slider("Minimum Rating (0-10)", 0.0, 10.0, 8.5, 0.1)
     
-    with st.expander("Stay Details"):
+    with st.expander("Stay Details", expanded=True):
         accommodates = st.number_input("Number of Guests", 1, 16, 2)
         bedrooms = st.number_input("Bedrooms", 0, 10, 1)
         bathrooms = st.number_input("Bathrooms", 0.0, 10.0, 1.0)
         beds = st.number_input("Beds", 1, 20, 1)
         min_nights = st.number_input("Minimum Nights", 1, 30, 2)
 
-# MAIN PANEL: Tourism Interests
+# 5. MAIN PANEL: Tourism Interests
 st.title("Amsterdam Trip Planner & Price Predictor 🌷")
-st.write("Discover the perfect neighborhood based on your interests and view the expected price.")
 
-# The Interest Map: Connecting vibes to specific neighborhoods
 interest_map = {
     "Historical Sites & Old City": ["Centrum-West", "Centrum-Oost"],
     "Museums & Art": ["Zuid", "Centrum-Oost"],
@@ -74,21 +75,17 @@ interest_map = {
     "Quiet & Residential": ["Buitenveldert - Zuidas", "IJburg - Zeeburgereiland"]
 }
 
-# User chooses a vibe
 selected_vibe = st.selectbox("What would you like to explore?", list(interest_map.keys()))
 recommended_hoods = interest_map[selected_vibe]
 
-# Layout for Map and Results
 col_map, col_res = st.columns([2, 1])
 
 with col_map:
-    # Initialize Map
     m = folium.Map(location=[52.3676, 4.9041], zoom_start=12, tiles="CartoDB positron")
     
     if gdf is not None:
         def style_function(feature):
             name = feature['properties']['neighbourhood']
-            # Highlight only the neighborhoods that match the selected vibe
             is_target = name in recommended_hoods
             return {
                 'fillColor': '#FF5A5F' if is_target else '#ced4da',
@@ -96,47 +93,43 @@ with col_map:
                 'weight': 1,
                 'fillOpacity': 0.7 if is_target else 0.1,
             }
-
         folium.GeoJson(gdf, style_function=style_function).add_to(m)
     
     st_folium(m, width=700, height=450)
 
 with col_res:
     st.subheader("Recommendation")
-    # User selects one of the suggested neighborhoods for prediction
-    hood_choice = st.selectbox("Select a neighborhood from the suggestions:", recommended_hoods)
+    hood_choice = st.selectbox("Select a neighborhood:", recommended_hoods)
     
     predict_btn = st.button("Predict Price")
 
     if predict_btn:
-        # Create input DataFrame with feature names matching your training data
         input_df = pd.DataFrame({
-            'accommodates': [accommodates],
-            'bedrooms': [bedrooms],
-            'bathrooms_count': [bathrooms],
-            'beds': [beds],
-            'availability_365': [150], 
+            'accommodates': [float(accommodates)],
+            'bedrooms': [float(bedrooms)],
+            'bathrooms_count': [float(bathrooms)],
+            'beds': [float(beds)],
+            'availability_365': [150.0], 
             'reviews_per_month': [2.5],
             'instant_bookable': [1],
             'host_identity_verified': [1],
             'review_scores_cleanliness': [9.5],
             'review_scores_location': [9.5],
-            'review_scores_value': [review_score],
-            'first_review_days': [500],
+            'review_scores_value': [float(review_score)],
+            'first_review_days': [500.0],
             'room_type': [room_type], 
             'neighbourhood_cleansed': [hood_choice],
-            'accommodates2': [accommodates**2],
-            'minimum_nights2': [min_nights**2]
+            'accommodates2': [float(accommodates**2)],
+            'minimum_nights2': [float(min_nights**2)]
         })
 
         try:
-            # Statsmodels formula models handle the categorical encoding automatically
             if model is not None:
                 prediction = model.predict(input_df)
                 st.markdown("---")
-                st.success(f"The estimated price for your stay is:")
-                st.metric("Estimated Price", f"€{prediction[0]:.2f}")
+                st.success(f"Estimated Price per Night:")
+                st.metric("", f"€{prediction[0]:.2f}")
             else:
-                st.error("Model not loaded correctly.")
+                st.error("Model assets not loaded. Check GitHub filenames.")
         except Exception as e:
             st.error(f"Prediction Error: {e}")
