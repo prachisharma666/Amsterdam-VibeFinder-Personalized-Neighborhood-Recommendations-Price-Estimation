@@ -14,7 +14,7 @@ st.set_page_config(page_title="Amsterdam Stay Planner", page_icon="🌷", layout
 @st.cache_resource
 def load_assets():
     # Loading the model. smf.ols handles preprocessing internally via the formula.
-    model = sm.load("airbnb_model.pkl")
+    model = joblib.load("airbnb_model.pkl")
     return model
 
 @st.cache_data
