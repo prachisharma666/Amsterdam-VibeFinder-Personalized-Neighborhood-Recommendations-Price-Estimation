@@ -435,7 +435,6 @@ with col_pred:
 st.markdown("---")
 st.markdown("<div class='section-title' style='color:#1a1a2e !important'>Neighbourhood Guide</div>",
             unsafe_allow_html=True)
-st.caption("Only the 15 neighbourhoods present in the training data are listed.")
 
 HOOD_INFO = {
     "Centrum-West":                               ("Old Centre / Canal Ring",  "Historical canals, Anne Frank House, Jordaan"),
