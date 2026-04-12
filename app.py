@@ -172,6 +172,7 @@ MEDIAN_DEFAULTS = {
     "has_availability":  1,
     "host_is_superhost": 0,
     "last_review_days":  180.0,
+    "first_review_days": 500.0,   # median-filled; no longer shown in UI
 }
 
 # Only neighbourhoods present in your training data
@@ -236,13 +237,12 @@ with st.sidebar:
     avail_365    = st.slider("Days Available per Year", 0, 365, 150)
 
     st.markdown("---")
-    st.markdown("**Review Scores (1–5 scale)**")
-    rev_value    = st.slider("Value",       1.0, 5.0, 4.5, 0.1)
-    rev_clean    = st.slider("Cleanliness", 1.0, 5.0, 4.7, 0.1)
-    rev_location = st.slider("Location",   1.0, 5.0, 4.8, 0.1)
-    rev_rating   = st.slider("Rating",     1.0, 5.0, 4.6, 0.1)
+    st.markdown("**Review Scores (1.0–5.0)**")
+    rev_value    = st.number_input("Value",       min_value=1.0, max_value=5.0, value=4.5, step=0.1, format="%.1f")
+    rev_clean    = st.number_input("Cleanliness", min_value=1.0, max_value=5.0, value=4.7, step=0.1, format="%.1f")
+    rev_location = st.number_input("Location",    min_value=1.0, max_value=5.0, value=4.8, step=0.1, format="%.1f")
+    rev_rating   = st.number_input("Rating",      min_value=1.0, max_value=5.0, value=4.6, step=0.1, format="%.1f")
     reviews_pm   = st.number_input("Reviews per Month", 0.0, 30.0, 2.5, 0.5)
-    first_rev_days = st.number_input("Days Since First Review", 0, 5000, 500)
 
     st.markdown("---")
     instant_bookable       = st.checkbox("⚡ Instant Bookable",      value=True)
@@ -380,8 +380,8 @@ with col_pred:
                     "review_scores_location":    float(rev_location),
                     "review_scores_cleanliness": float(rev_clean),
                     "review_scores_rating":      float(rev_rating),
-                    "first_review_days":         float(first_rev_days),
-                    # num_cols — median-filled (needed by preprocessor, dropped from model formula)
+                    # num_cols — median-filled
+                    "first_review_days":         MEDIAN_DEFAULTS["first_review_days"],
                     "latitude":                  MEDIAN_DEFAULTS["latitude"],
                     "longitude":                 MEDIAN_DEFAULTS["longitude"],
                     "maximum_nights":            MEDIAN_DEFAULTS["maximum_nights"],
