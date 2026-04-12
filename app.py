@@ -252,7 +252,7 @@ with st.sidebar:
     st.markdown(
         "<small style='color:#777'>"
         "Model: OLS on log₁p(price)<br>"
-        "R² = 0.529 (training set)<br>"
+        "R² = 0.529 (train) · 0.4478 (test)<br>"
         "15 neighbourhoods from training data"
         "</small>",
         unsafe_allow_html=True,
@@ -337,8 +337,8 @@ with col_pred:
 
     st.markdown(
         "<div class='metric-row'>"
-        "  <div class='metric-pill'><div class='m-val'>0.529</div>"
-        "    <div class='m-lbl'>R² (train)</div></div>"
+        "  <div class='metric-pill'><div class='m-val'>0.4478</div>"
+        "    <div class='m-lbl'>R² (test)</div></div>"
         "  <div class='metric-pill'><div class='m-val'>log₁p</div>"
         "    <div class='m-lbl'>Target</div></div>"
         "  <div class='metric-pill'><div class='m-val'>OLS</div>"
@@ -420,7 +420,7 @@ with col_pred:
                 )
                 st.caption(
                     f"log₁p prediction: {log_pred:.4f} → expm1 → €{price:.2f}. "
-                    "R² = 0.529 means the model explains ~53% of price variance on the training set."
+                    "R² = 0.4478 (test set) means the model explains ~45% of price variance on unseen data."
                 )
 
             except Exception as e:
@@ -473,7 +473,7 @@ for i, (hood, (zone, notes)) in enumerate(HOOD_INFO.items()):
 st.markdown(
     "<p style='text-align:center;color:#aaa;font-size:0.78rem;margin-top:1rem'>"
     "Predictions based on OLS trained on Amsterdam Airbnb data. "
-    "R² = 0.529 (training set). Always verify with live Airbnb listings."
+    "R² = 0.4478 (test set). Always verify with live Airbnb listings."
     "</p>",
     unsafe_allow_html=True,
 )
