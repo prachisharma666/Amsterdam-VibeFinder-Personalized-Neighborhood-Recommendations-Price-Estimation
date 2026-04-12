@@ -1,25 +1,3 @@
-"""
-Amsterdam Airbnb Stay Planner — app.py
-=======================================
-Model pipeline (from your notebook):
-  1. preprocessor (ColumnTransformer) expects ALL of:
-       bool_cols  = host_is_superhost, host_identity_verified,
-                    has_availability, instant_bookable
-       num_cols   = latitude, longitude, accommodates, bathrooms_count,
-                    bedrooms, beds, minimum_nights, maximum_nights,
-                    availability_365, number_of_reviews, reviews_per_month,
-                    review_scores_value, review_scores_location,
-                    review_scores_cleanliness, review_scores_rating,
-                    first_review_days, last_review_days
-       cat_cols   = room_type, neighbourhood_cleansed
-     -> outputs a scaled/one-hot DataFrame (x_processed)
-
-  2. final_df adds squared terms; lmfit1 (statsmodels OLS) predicts log1p(price).
-
-  Actual model metrics (from your notebook):
-    R² = 0.529  (training set)
-"""
-
 import streamlit as st
 import pandas as pd
 import numpy as np
@@ -28,7 +6,6 @@ from streamlit_folium import st_folium
 import geopandas as gpd
 import joblib
 
-# ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
     page_title="Amsterdam Stay Planner",
     page_icon="🌷",
@@ -36,56 +13,119 @@ st.set_page_config(
     initial_sidebar_state="expanded",
 )
 
-# ── CSS ───────────────────────────────────────────────────────────────────────
 st.markdown("""
 <style>
 @import url('https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=DM+Sans:wght@400;500;600&display=swap');
-html, body, [class*="css"] { font-family: 'DM Sans', sans-serif; }
-h1, h2, h3 { font-family: 'DM Serif Display', serif; }
 
-[data-testid="stSidebar"] { background-color: #1a1a2e; }
+/* ── Force light background regardless of Streamlit theme setting ── */
+.stApp,
+[data-testid="stAppViewContainer"],
+[data-testid="stAppViewBlockContainer"],
+section.main,
+.main .block-container {
+    background-color: #faf7f2 !important;
+}
+
+/* ── Global text: always dark on light bg ── */
+html, body,
+[class*="css"],
+.stApp,
+.stMarkdown,
+.stMarkdown p,
+p, span, div,
+[data-testid="stText"],
+[data-testid="stMarkdownContainer"] p {
+    font-family: 'DM Sans', sans-serif;
+    color: #1a1a2e !important;
+}
+
+h1, h2, h3 { font-family: 'DM Serif Display', serif; color: #1a1a2e !important; }
+
+/* selectbox / number_input / slider labels */
+label, .stSelectbox label, .stNumberInput label,
+.stSlider label, [data-baseweb="label"] {
+    color: #1a1a2e !important;
+    font-weight: 500;
+}
+/* selectbox value text */
+[data-baseweb="select"] [data-testid="stMarkdownContainer"],
+[data-baseweb="select"] span { color: #1a1a2e !important; }
+
+/* caption / small helper text */
+.stCaption, small, [data-testid="stCaptionContainer"] {
+    color: #555 !important;
+}
+
+/* ── Sidebar: keep dark ── */
+[data-testid="stSidebar"],
+[data-testid="stSidebar"] > div:first-child {
+    background-color: #1a1a2e !important;
+}
 [data-testid="stSidebar"] label,
-[data-testid="stSidebar"] .stMarkdown,
-[data-testid="stSidebar"] p { color: #ccc !important; }
+[data-testid="stSidebar"] p,
+[data-testid="stSidebar"] span,
+[data-testid="stSidebar"] div,
+[data-testid="stSidebar"] .stMarkdown p { color: #ccc !important; }
 [data-testid="stSidebar"] h2,
 [data-testid="stSidebar"] h3 { color: #fff !important; }
+[data-testid="stSidebar"] .stSlider label,
+[data-testid="stSidebar"] .stNumberInput label,
+[data-testid="stSidebar"] .stSelectbox label { color: #ccc !important; }
 
+/* ── Buttons ── */
 .stButton > button {
     width: 100%;
     background: linear-gradient(135deg, #FF5A5F, #c0392b);
-    color: white; font-weight: 600; font-size: 1rem;
+    color: white !important; font-weight: 600; font-size: 1rem;
     border: none; border-radius: 12px;
     padding: 0.75rem 1rem;
     transition: opacity 0.2s;
 }
 .stButton > button:hover { opacity: 0.85; }
+.stButton > button p { color: white !important; }
 
+/* ── Price card ── */
 .price-card {
     background: linear-gradient(135deg, #1a1a2e, #16213e);
     border-radius: 16px; padding: 1.6rem 2rem;
-    text-align: center; color: white; margin-top: 1rem;
+    text-align: center; margin-top: 1rem;
     box-shadow: 0 8px 24px rgba(0,0,0,0.18);
 }
-.price-card .label  { font-size:0.82rem; letter-spacing:0.1em; text-transform:uppercase; opacity:0.65; }
-.price-card .amount { font-family:'DM Serif Display',serif; font-size:3rem; color:#FF5A5F; }
-.price-card .sub    { font-size:0.78rem; opacity:0.5; margin-top:0.3rem; }
+.price-card .label  { font-size:0.82rem; letter-spacing:0.1em; text-transform:uppercase; color:#aaa !important; }
+.price-card .amount { font-family:'DM Serif Display',serif; font-size:3rem; color:#FF5A5F !important; }
+.price-card .sub    { font-size:0.78rem; color:#888 !important; margin-top:0.3rem; }
 
+/* ── Info box ── */
 .info-box {
     background:#fff; border-left:4px solid #FF5A5F;
     border-radius:8px; padding:0.8rem 1rem; margin:0.6rem 0;
     font-size:0.9rem; box-shadow:0 2px 8px rgba(0,0,0,0.06);
 }
-.section-title { font-family:'DM Serif Display',serif; font-size:1.5rem; color:#1a1a2e; margin-bottom:0.3rem; }
+.info-box b, .info-box span { color: #1a1a2e !important; }
 
+/* ── Section title ── */
+.section-title {
+    font-family:'DM Serif Display',serif; font-size:1.5rem;
+    color:#1a1a2e !important; margin-bottom:0.3rem;
+}
+
+/* ── Metric pills ── */
 .metric-row { display:flex; gap:12px; margin-top:0.6rem; }
-.metric-pill { flex:1; background:#fff; border-radius:10px; padding:0.6rem 0.8rem; text-align:center; box-shadow:0 2px 8px rgba(0,0,0,0.07); }
-.metric-pill .m-val { font-weight:700; font-size:1.05rem; color:#1a1a2e; }
-.metric-pill .m-lbl { font-size:0.72rem; color:#888; text-transform:uppercase; letter-spacing:0.05em; }
+.metric-pill {
+    flex:1; background:#fff; border-radius:10px;
+    padding:0.6rem 0.8rem; text-align:center;
+    box-shadow:0 2px 8px rgba(0,0,0,0.07);
+}
+.metric-pill .m-val { font-weight:700; font-size:1.05rem; color:#1a1a2e !important; }
+.metric-pill .m-lbl { font-size:0.72rem; color:#888 !important; text-transform:uppercase; letter-spacing:0.05em; }
 
+/* ── Neighbourhood cards ── */
 .hood-card {
     background:#fff; border-radius:10px; padding:0.85rem 1rem;
     margin-bottom:0.7rem; box-shadow:0 2px 8px rgba(0,0,0,0.07);
 }
+.hood-card b    { color:#1a1a2e !important; }
+.hood-card span { color:#555 !important; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -221,18 +261,18 @@ with st.sidebar:
 # ── Header ────────────────────────────────────────────────────────────────────
 st.markdown(
     "<h1 style='font-family:DM Serif Display,serif;font-size:2.6rem;"
-    "color:#1a1a2e;margin-bottom:0'>Amsterdam Stay Planner 🌷</h1>",
+    "color:#1a1a2e !important;margin-bottom:0'>Amsterdam Stay Planner 🌷</h1>",
     unsafe_allow_html=True,
 )
 st.markdown(
-    "<p style='color:#666;font-size:1rem;margin-top:0.2rem'>"
+    "<p style='color:#444 !important;font-size:1rem;margin-top:0.2rem'>"
     "Choose your travel interest → pick a neighbourhood → get a price estimate.</p>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
 
 # ── Interest selector ─────────────────────────────────────────────────────────
-st.markdown("<div class='section-title'>What brings you to Amsterdam?</div>",
+st.markdown("<div class='section-title' style='color:#1a1a2e !important'>What brings you to Amsterdam?</div>",
             unsafe_allow_html=True)
 
 if "selected_vibe" not in st.session_state:
@@ -249,8 +289,9 @@ vibe_info     = INTEREST_MAP[selected_vibe]
 recommended   = vibe_info["hoods"]
 
 st.markdown(
-    f"<div class='info-box'>📍 <b>Recommended areas:</b> {', '.join(recommended)}<br>"
-    f"<span style='color:#555'>{vibe_info['desc']}</span></div>",
+    f"<div class='info-box'>📍 <b style='color:#1a1a2e !important'>Recommended areas:</b> "
+    f"<span style='color:#1a1a2e !important'>{', '.join(recommended)}</span><br>"
+    f"<span style='color:#444 !important'>{vibe_info['desc']}</span></div>",
     unsafe_allow_html=True,
 )
 st.markdown("---")
@@ -259,7 +300,7 @@ st.markdown("---")
 col_map, col_pred = st.columns([3, 2], gap="large")
 
 with col_map:
-    st.markdown("<div class='section-title'>Neighbourhood Map</div>",
+    st.markdown("<div class='section-title' style='color:#1a1a2e !important'>Neighbourhood Map</div>",
                 unsafe_allow_html=True)
     st.caption("Highlighted in red = recommended for your interest.")
 
@@ -289,7 +330,7 @@ with col_map:
     st_folium(m, width=None, height=430, returned_objects=[])
 
 with col_pred:
-    st.markdown("<div class='section-title'>Price Predictor</div>",
+    st.markdown("<div class='section-title' style='color:#1a1a2e !important'>Price Predictor</div>",
                 unsafe_allow_html=True)
 
     hood_choice = st.selectbox("Select a neighbourhood", recommended)
@@ -391,9 +432,8 @@ with col_pred:
                     "- Both `.pkl` files are next to `app.py`?"
                 )
 
-# ── Neighbourhood guide ───────────────────────────────────────────────────────
 st.markdown("---")
-st.markdown("<div class='section-title'>Neighbourhood Guide</div>",
+st.markdown("<div class='section-title' style='color:#1a1a2e !important'>Neighbourhood Guide</div>",
             unsafe_allow_html=True)
 st.caption("Only the 15 neighbourhoods present in the training data are listed.")
 
