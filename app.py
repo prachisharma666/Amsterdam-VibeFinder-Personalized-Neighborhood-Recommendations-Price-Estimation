@@ -238,10 +238,10 @@ with st.sidebar:
 
     st.markdown("---")
     st.markdown("**Review Scores (1.0–5.0)**")
-    rev_value    = st.number_input("Value",       min_value=1.0, max_value=5.0, value=4.5, step=0.1, format="%.1f")
-    rev_clean    = st.number_input("Cleanliness", min_value=1.0, max_value=5.0, value=4.7, step=0.1, format="%.1f")
-    rev_location = st.number_input("Location",    min_value=1.0, max_value=5.0, value=4.8, step=0.1, format="%.1f")
-    rev_rating   = st.number_input("Rating",      min_value=1.0, max_value=5.0, value=4.6, step=0.1, format="%.1f")
+    rev_value    = st.number_input("Value",       min_value=1.0, max_value=5.0, value=4.50, step=0.01, format="%.2f")
+    rev_clean    = st.number_input("Cleanliness", min_value=1.0, max_value=5.0, value=4.70, step=0.01, format="%.2f")
+    rev_location = st.number_input("Location",    min_value=1.0, max_value=5.0, value=4.80, step=0.01, format="%.2f")
+    rev_rating   = st.number_input("Rating",      min_value=1.0, max_value=5.0, value=4.60, step=0.01, format="%.2f")
     reviews_pm   = st.number_input("Reviews per Month", 0.0, 30.0, 2.5, 0.5)
 
     st.markdown("---")
