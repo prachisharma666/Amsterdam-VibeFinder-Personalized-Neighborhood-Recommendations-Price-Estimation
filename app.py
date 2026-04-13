@@ -252,7 +252,7 @@ with st.sidebar:
     st.markdown(
         "<small style='color:#777'>"
         "Model: OLS on log₁p(price)<br>"
-        "R² = 0.529 (train) · 0.4478 (test)<br>"
+        "R² = 0.528 (train) · 0.4472 (test)<br>"
         "15 neighbourhoods from training data"
         "</small>",
         unsafe_allow_html=True,
@@ -337,7 +337,7 @@ with col_pred:
 
     st.markdown(
         "<div class='metric-row'>"
-        "  <div class='metric-pill'><div class='m-val'>0.4478</div>"
+        "  <div class='metric-pill'><div class='m-val'>0.4472</div>"
         "    <div class='m-lbl'>R² (test)</div></div>"
         "  <div class='metric-pill'><div class='m-val'>log₁p</div>"
         "    <div class='m-lbl'>Target</div></div>"
